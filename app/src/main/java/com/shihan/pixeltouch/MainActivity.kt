@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.textVersion.text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
         AppUpdateManager.checkForUpdate(this)
 
         binding.btnOverlay.setOnClickListener {

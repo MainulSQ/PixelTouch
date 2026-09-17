@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PixelTouch</string>
+    <string name="app_version">Version %1$s</string>
     <string name="action_wifi">Wi‑Fi</string>
     <string name="action_data">Mobile data</string>
     <string name="action_sound">Sound</string>

@@ -19,9 +19,17 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/text_version"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#8F9AA6"
+            android:textSize="12sp" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:layout_marginBottom="20dp"
             android:text="A floating AssistiveTouch-style bubble for quick Wi-Fi, mobile data, sound, hotspot and battery saver toggles."
             android:textColor="#AAAAAA"
