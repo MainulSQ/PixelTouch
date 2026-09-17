@@ -9,7 +9,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -18,8 +17,10 @@ import java.util.concurrent.Executors
 /** Fetches signed development builds published by this project's GitHub Action. */
 object AppUpdateManager {
 
-    private const val RELEASE_API =
-        "https://api.github.com/repos/MainulSQ/PixelTouch/releases/latest"
+    private const val RELEASES_LATEST =
+        "https://github.com/MainulSQ/PixelTouch/releases/latest"
+    private const val RELEASE_DOWNLOAD_BASE =
+        "https://github.com/MainulSQ/PixelTouch/releases/download"
     private const val APK_NAME = "PixelTouch.apk"
 
     private val executor = Executors.newSingleThreadExecutor()
@@ -98,28 +99,27 @@ object AppUpdateManager {
     }
 
     private fun fetchLatestUpdate(): Update? = runCatching {
-        val connection = (URL(RELEASE_API).openConnection() as HttpURLConnection).apply {
+        // GitHub's REST API is rate-limited for an unauthenticated sideloaded app.
+        // This stable release URL returns a redirect to /releases/tag/v{code}, which
+        // gives us the same version information without consuming API quota.
+        val connection = (URL(RELEASES_LATEST).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
-            setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("User-Agent", "PixelTouch")
+            instanceFollowRedirects = false
         }
         try {
-            if (connection.responseCode !in 200..299) return null
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val versionCode = json.getString("tag_name").removePrefix("v").toIntOrNull() ?: return null
-            val assets = json.getJSONArray("assets")
-            for (index in 0 until assets.length()) {
-                val asset = assets.getJSONObject(index)
-                if (asset.getString("name") == APK_NAME) {
-                    return Update(
-                        versionCode = versionCode,
-                        versionName = json.optString("name", "v$versionCode"),
-                        downloadUrl = asset.getString("browser_download_url")
-                    )
-                }
-            }
-            null
+            if (connection.responseCode !in 300..399) return null
+            val tag = connection.getHeaderField("Location")
+                ?.substringAfterLast('/')
+                ?.takeIf { it.startsWith("v") }
+                ?: return null
+            val versionCode = tag.removePrefix("v").toIntOrNull() ?: return null
+            Update(
+                versionCode = versionCode,
+                versionName = tag,
+                downloadUrl = "$RELEASE_DOWNLOAD_BASE/$tag/$APK_NAME"
+            )
         } finally {
             connection.disconnect()
         }
