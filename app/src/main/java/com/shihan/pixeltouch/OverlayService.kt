@@ -210,6 +210,9 @@ class OverlayService : Service() {
         menuParams = params
         wireMenuActions(view)
         applyControlOrder(view)
+        view.findViewById<SwipePager>(R.id.menu_pager).onPageChanged = { page ->
+            updatePageDots(view, page)
+        }
         showPage(view, 0)
         view.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_OUTSIDE) {
@@ -270,6 +273,10 @@ class OverlayService : Service() {
     private fun showPage(view: View, page: Int) {
         val pager = view.findViewById<ViewFlipper>(R.id.menu_pager)
         pager.displayedChild = page
+        updatePageDots(view, page)
+    }
+
+    private fun updatePageDots(view: View, page: Int) {
         view.findViewById<View>(R.id.page_dot_one).setBackgroundResource(
             if (page == 0) R.drawable.bg_page_dot_active else R.drawable.bg_page_dot
         )
@@ -450,16 +457,15 @@ class OverlayService : Service() {
         val admin = ComponentName(this, ScreenLockAdminReceiver::class.java)
         val policyManager = getSystemService(DevicePolicyManager::class.java)
         if (policyManager.isAdminActive(admin)) {
-            policyManager.lockNow()
+            runCatching { policyManager.lockNow() }
+                .onFailure {
+                    Toast.makeText(this, "Screen lock was blocked by this device", Toast.LENGTH_LONG).show()
+                }
             return
         }
+        Toast.makeText(this, "Enable Screen Lock in the next Android screen, then tap Lock screen again", Toast.LENGTH_LONG).show()
         launchFromOverlay(
-            Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                .putExtra(
-                    DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                    "PixelTouch needs this permission only to lock the screen from its floating menu."
-                )
+            Intent(this, ScreenLockSetupActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }

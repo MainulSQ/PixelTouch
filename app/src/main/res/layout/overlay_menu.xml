@@ -68,7 +68,7 @@
             android:src="@drawable/ic_tune" />
     </LinearLayout>
 
-    <ViewFlipper
+    <com.shihan.pixeltouch.SwipePager
         android:id="@+id/menu_pager"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -144,7 +144,7 @@
                 <TextView style="@style/OverlayMenuLabel" android:text="@string/action_hide_menu" />
             </LinearLayout>
         </GridLayout>
-    </ViewFlipper>
+    </com.shihan.pixeltouch.SwipePager>
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -46,6 +46,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ScreenLockSetupActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.PixelTouch.Transparent" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"

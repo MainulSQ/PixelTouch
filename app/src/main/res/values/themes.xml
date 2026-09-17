@@ -8,6 +8,13 @@
         <item name="android:windowBackground">@color/colorBackground</item>
     </style>
 
+    <style name="Theme.PixelTouch.Transparent" parent="Theme.PixelTouch">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorAccent">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
     <style name="OverlayMenuTile">
         <item name="android:orientation">vertical</item>
         <item name="android:gravity">center</item>
