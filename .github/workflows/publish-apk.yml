@@ -46,10 +46,15 @@ jobs:
           echo "code=${VERSION##*+}" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.code }}
-          name: PixelTouch ${{ steps.version.outputs.name }}
-          files: build/app/outputs/flutter-apk/PixelTouch.apk
-          generate_release_notes: true
-          overwrite_files: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.code }}
+          NAME: PixelTouch ${{ steps.version.outputs.name }}
+          APK: build/app/outputs/flutter-apk/PixelTouch.apk
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$NAME" --draft=false
+          else
+            gh release create "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --title "$NAME" --generate-notes
+          fi

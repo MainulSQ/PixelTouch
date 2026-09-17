@@ -36,6 +36,22 @@ class HomePage extends StatelessWidget {
                   'Assistive controls for your Pixel',
                   style: TextStyle(color: Color(0xFFB9C0C8)),
                 ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      'Version ${s?.versionName ?? '…'}',
+                      style: const TextStyle(color: Color(0xFF8E98A3)),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () =>
+                          context.read<HomeCubit>().checkForUpdate(),
+                      icon: const Icon(Icons.system_update_rounded, size: 18),
+                      label: const Text('Check update'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 _BubbleCard(running: s?.running == true),
                 const SizedBox(height: 24),

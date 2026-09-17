@@ -26,6 +26,7 @@ object AppUpdateManager {
     private val executor = Executors.newSingleThreadExecutor()
     private var pendingUpdate: Update? = null
     private var shownVersionCode: Int? = null
+    private var lastCheckAt = 0L
 
     private data class Update(
         val versionCode: Int,
@@ -33,16 +34,25 @@ object AppUpdateManager {
         val downloadUrl: String
     )
 
-    fun checkForUpdate(activity: Activity) {
+    fun checkForUpdate(activity: Activity, callback: ((Map<String, Any>) -> Unit)? = null) {
+        val now = System.currentTimeMillis()
+        if (callback == null && now - lastCheckAt < CHECK_COOLDOWN_MS) return
+        lastCheckAt = now
         executor.execute {
-            val update = fetchLatestUpdate() ?: return@execute
-            if (update.versionCode <= BuildConfig.VERSION_CODE || shownVersionCode == update.versionCode) {
-                return@execute
-            }
+            val update = fetchLatestUpdate()
             activity.runOnUiThread {
                 if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                shownVersionCode = update.versionCode
-                showUpdateDialog(activity, update)
+                if (update == null) {
+                    callback?.invoke(mapOf("status" to "unavailable"))
+                } else if (update.versionCode <= BuildConfig.VERSION_CODE) {
+                    callback?.invoke(mapOf("status" to "up_to_date", "version" to update.versionName))
+                } else {
+                    callback?.invoke(mapOf("status" to "available", "version" to update.versionName))
+                    if (shownVersionCode != update.versionCode) {
+                        shownVersionCode = update.versionCode
+                        showUpdateDialog(activity, update)
+                    }
+                }
             }
         }
     }
@@ -102,10 +112,12 @@ object AppUpdateManager {
         // GitHub's REST API is rate-limited for an unauthenticated sideloaded app.
         // This stable release URL returns a redirect to /releases/tag/v{code}, which
         // gives us the same version information without consuming API quota.
-        val connection = (URL(RELEASES_LATEST).openConnection() as HttpURLConnection).apply {
+        val connection = (URL("$RELEASES_LATEST?check=${System.currentTimeMillis()}").openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
             setRequestProperty("User-Agent", "PixelTouch")
+            setRequestProperty("Cache-Control", "no-cache")
+            useCaches = false
             instanceFollowRedirects = false
         }
         try {
@@ -158,4 +170,6 @@ object AppUpdateManager {
             }
         )
     }
+
+    private const val CHECK_COOLDOWN_MS = 30_000L
 }

@@ -35,4 +35,14 @@ class HomeCubit extends Cubit<HomeState> {
     await _device.invoke(method);
     emit(state.copyWith(message: message));
   }
+
+  Future<void> checkForUpdate() async {
+    final result = await _device.checkForUpdate();
+    final message = switch (result) {
+      'available' => 'Update found — follow the install prompt.',
+      'up_to_date' => 'PixelTouch is up to date.',
+      _ => 'Could not check for updates. Check your internet connection.',
+    };
+    emit(state.copyWith(message: message));
+  }
 }

@@ -7,8 +7,10 @@ class DeviceStatus {
     required this.location,
     required this.notifications,
     required this.running,
+    required this.versionName,
   });
   final bool overlay, dnd, location, notifications, running;
+  final String versionName;
 
   factory DeviceStatus.fromMap(Map<Object?, Object?> values) => DeviceStatus(
     overlay: values['overlay'] == true,
@@ -16,6 +18,7 @@ class DeviceStatus {
     location: values['location'] == true,
     notifications: values['notifications'] == true,
     running: values['running'] == true,
+    versionName: values['versionName'] as String? ?? 'Unknown',
   );
 }
 
@@ -43,6 +46,13 @@ class AndroidDeviceGateway {
     await _channel.invokeMapMethod<Object?, Object?>('status') ?? const {},
   );
   Future<void> invoke(String method) => _channel.invokeMethod<void>(method);
+
+  Future<String> checkForUpdate() async {
+    final result =
+        await _channel.invokeMapMethod<Object?, Object?>('checkForUpdate') ??
+        const {};
+    return result['status'] as String? ?? 'unavailable';
+  }
 
   Future<List<MenuControl>> menuControls() async {
     final values =

@@ -35,6 +35,7 @@ class MainActivity : FlutterActivity() {
                 "startBubble" -> { startForegroundService(Intent(this, OverlayService::class.java)); setBubbleRunning(true); result.success(null) }
                 "stopBubble" -> { stopService(Intent(this, OverlayService::class.java)); setBubbleRunning(false); result.success(null) }
                 "openAccessibility" -> { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); result.success(null) }
+                "checkForUpdate" -> AppUpdateManager.checkForUpdate(this) { update -> result.success(update) }
                 "menuControls" -> result.success(menuControls())
                 "setMenuControlVisible" -> {
                     val id = call.argument<Int>("id")
@@ -50,6 +51,7 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         AppUpdateManager.resumePendingInstall(this)
+        AppUpdateManager.checkForUpdate(this)
     }
 
     private fun openOverlayPermission() {
@@ -65,14 +67,15 @@ class MainActivity : FlutterActivity() {
         "dnd" to (getSystemService(NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true),
         "location" to (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED),
         "notifications" to (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED),
-        "running" to getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE).getBoolean(BootReceiver.KEY_RUNNING, false)
+        "running" to getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE).getBoolean(BootReceiver.KEY_RUNNING, false),
+        "versionName" to BuildConfig.VERSION_NAME,
+        "versionCode" to BuildConfig.VERSION_CODE
     )
 
     private val menuControlIds = listOf(
         R.id.action_wifi, R.id.action_data, R.id.action_sound, R.id.action_screenshot,
         R.id.action_torch, R.id.action_hotspot, R.id.action_battery, R.id.action_lock,
         R.id.action_bluetooth, R.id.action_display, R.id.action_settings,
-        R.id.action_screenshot,
     )
 
     private fun menuControls(): List<Map<String, Any>> {
