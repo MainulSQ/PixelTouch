@@ -18,9 +18,9 @@
     <style name="OverlayMenuTile">
         <item name="android:orientation">vertical</item>
         <item name="android:gravity">center</item>
-        <item name="android:padding">4dp</item>
-        <item name="android:layout_width">86dp</item>
-        <item name="android:layout_height">56dp</item>
+        <item name="android:padding">6dp</item>
+        <item name="android:layout_width">96dp</item>
+        <item name="android:layout_height">108dp</item>
         <item name="android:layout_margin">2dp</item>
         <item name="android:background">@drawable/bg_menu_tile</item>
         <item name="android:clickable">true</item>
@@ -30,12 +30,17 @@
     <style name="OverlayMenuLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:layout_marginTop">7dp</item>
         <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textSize">9sp</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">normal</item>
         <item name="android:gravity">center</item>
         <item name="android:maxLines">2</item>
+    </style>
+
+    <style name="OverlayMenuIcon">
+        <item name="android:layout_width">42dp</item>
+        <item name="android:layout_height">42dp</item>
     </style>
 
     <style name="OverlayMiniButton">

@@ -23,12 +23,11 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.VelocityTracker
 import android.view.WindowManager
-import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.GridLayout
-import android.widget.TextView
 import android.widget.Toast
-import android.widget.ViewFlipper
 import androidx.core.app.NotificationCompat
 import com.shihan.pixeltouch.toggles.BatterySaverToggle
 import com.shihan.pixeltouch.toggles.HotspotToggle
@@ -56,7 +55,16 @@ class OverlayService : Service() {
     private var initialTouchX = 0f
     private var initialTouchY = 0f
     private var isDragging = false
+    private var isNearDismissTarget = false
+    private var isPointerDown = false
     private var isEditingMenu = false
+    private var velocityTracker: VelocityTracker? = null
+    private var closeTargetHideRunnable: Runnable? = null
+    private var holdToDismissRunnable: Runnable? = null
+
+    private val touchSlop by lazy { android.view.ViewConfiguration.get(this).scaledTouchSlop }
+    private val dismissTargetCenterY: Float
+        get() = resources.displayMetrics.heightPixels - dp(76).toFloat()
 
     private val controlIds = listOf(
         R.id.action_wifi,
@@ -64,13 +72,13 @@ class OverlayService : Service() {
         R.id.action_sound,
         R.id.action_hotspot,
         R.id.action_battery,
-        R.id.action_stop,
         R.id.action_lock,
         R.id.action_bluetooth,
         R.id.action_display,
         R.id.action_settings,
         R.id.action_app_info,
-        R.id.action_hide_menu
+        R.id.action_stop,
+        R.id.action_volume_down
     )
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -127,38 +135,83 @@ class OverlayService : Service() {
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    closeTargetHideRunnable?.let { bubbleView?.removeCallbacks(it) }
                     initialX = bubbleParams.x
                     initialY = bubbleParams.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     isDragging = false
+                    isNearDismissTarget = false
+                    isPointerDown = true
+                    velocityTracker?.recycle()
+                    velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
+                    holdToDismissRunnable = Runnable {
+                        if (isPointerDown) showCloseTarget()
+                    }.also { view.postDelayed(it, 180) }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    velocityTracker?.addMovement(event)
                     val dx = event.rawX - initialTouchX
                     val dy = event.rawY - initialTouchY
-                    if (hypot(dx.toDouble(), dy.toDouble()) > 12 && !isDragging) {
+                    if (hypot(dx.toDouble(), dy.toDouble()) > touchSlop && !isDragging) {
                         isDragging = true
                         showCloseTarget()
                     }
-                    bubbleParams.x = initialX + dx.toInt()
-                    bubbleParams.y = initialY + dy.toInt()
+                    if (!isDragging) return@setOnTouchListener true
+
+                    val desiredX = initialX + dx.toInt()
+                    val desiredY = initialY + dy.toInt()
+                    val targetDistance = hypot(
+                        (event.rawX - resources.displayMetrics.widthPixels / 2f).toDouble(),
+                        (event.rawY - dismissTargetCenterY).toDouble()
+                    ).toFloat()
+                    val magneticRadius = dp(82).toFloat()
+                    isNearDismissTarget = targetDistance < magneticRadius
+                    if (isNearDismissTarget) {
+                        // A light magnetic pull makes the delete affordance feel deliberate.
+                        bubbleParams.x = resources.displayMetrics.widthPixels / 2 - bubbleWidth() / 2
+                        bubbleParams.y = (dismissTargetCenterY - bubbleHeight() / 2f).toInt()
+                        bubbleView?.animate()?.scaleX(0.72f)?.scaleY(0.72f)?.setDuration(90)?.start()
+                        closeTargetView?.animate()?.scaleX(1.12f)?.scaleY(1.12f)?.setDuration(90)?.start()
+                    } else {
+                        bubbleParams.x = desiredX.coerceIn(0, maxBubbleX())
+                        bubbleParams.y = desiredY.coerceIn(0, maxBubbleY())
+                        bubbleView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(90)?.start()
+                        closeTargetView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(90)?.start()
+                    }
                     runCatching { windowManager.updateViewLayout(bubbleView, bubbleParams) }
                     updateMenuPosition()
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    isPointerDown = false
+                    holdToDismissRunnable?.let { view.removeCallbacks(it) }
+                    holdToDismissRunnable = null
+                    velocityTracker?.addMovement(event)
+                    velocityTracker?.computeCurrentVelocity(1000)
+                    val velocityX = velocityTracker?.xVelocity ?: 0f
+                    val shouldDismiss = isDragging && (isNearDismissTarget || isOverCloseTarget(event.rawX, event.rawY))
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    bubbleView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(100)?.start()
                     hideCloseTarget()
-                    if (isDragging && isOverCloseTarget(event.rawX, event.rawY)) {
+                    if (shouldDismiss) {
                         stopSelf()
                     } else if (isDragging) {
-                        snapToEdge()
+                        snapToEdge(velocityX)
                     } else {
                         toggleMenu()
                     }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    isPointerDown = false
+                    holdToDismissRunnable?.let { view.removeCallbacks(it) }
+                    holdToDismissRunnable = null
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    bubbleView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(100)?.start()
                     hideCloseTarget()
                     false
                 }
@@ -167,15 +220,21 @@ class OverlayService : Service() {
         }
     }
 
-    private fun snapToEdge() {
+    private fun snapToEdge(velocityX: Float) {
         val screenWidth = resources.displayMetrics.widthPixels
-        val bubbleWidth = bubbleView?.width?.takeIf { it > 0 } ?: 150
+        val bubbleWidth = bubbleWidth()
         val middle = screenWidth / 2
-        val targetX = if (bubbleParams.x + bubbleWidth / 2 < middle) 0 else screenWidth - bubbleWidth
+        val flingThreshold = dp(420)
+        val targetX = when {
+            velocityX > flingThreshold -> maxBubbleX()
+            velocityX < -flingThreshold -> 0
+            bubbleParams.x + bubbleWidth / 2 < middle -> 0
+            else -> maxBubbleX()
+        }
         val startX = bubbleParams.x
         ValueAnimator.ofInt(startX, targetX).apply {
-            duration = 180
-            interpolator = AccelerateDecelerateInterpolator()
+            duration = (180 + (kotlin.math.abs(targetX - startX) * 0.22f).toLong()).coerceAtMost(420)
+            interpolator = DecelerateInterpolator(2.2f)
             addUpdateListener {
                 bubbleParams.x = it.animatedValue as Int
                 runCatching { windowManager.updateViewLayout(bubbleView, bubbleParams) }
@@ -210,10 +269,8 @@ class OverlayService : Service() {
         menuParams = params
         wireMenuActions(view)
         applyControlOrder(view)
-        view.findViewById<SwipePager>(R.id.menu_pager).onPageChanged = { page ->
-            updatePageDots(view, page)
-        }
-        showPage(view, 0)
+        view.findViewById<SwipePager>(R.id.menu_pager).onPageChanged = { _ -> }
+        view.findViewById<SwipePager>(R.id.menu_pager).setPage(0, animate = false)
         view.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_OUTSIDE) {
                 removeMenu()
@@ -240,7 +297,12 @@ class OverlayService : Service() {
     }
 
     private fun showCloseTarget() {
-        if (closeTargetView != null) return
+        closeTargetHideRunnable?.let { bubbleView?.removeCallbacks(it) }
+        closeTargetView?.let {
+            it.animate().cancel()
+            it.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(90).start()
+            return
+        }
         val view = LayoutInflater.from(this).inflate(R.layout.overlay_close_target, null)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -253,12 +315,25 @@ class OverlayService : Service() {
             y = (28 * resources.displayMetrics.density).toInt()
         }
         closeTargetView = view
+        view.alpha = 0f
+        view.scaleX = 0.55f
+        view.scaleY = 0.55f
         runCatching { windowManager.addView(view, params) }
+        view.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180)
+            .setInterpolator(DecelerateInterpolator(2.4f)).start()
     }
 
     private fun hideCloseTarget() {
-        closeTargetView?.let { runCatching { windowManager.removeView(it) } }
-        closeTargetView = null
+        val view = closeTargetView ?: return
+        closeTargetHideRunnable?.let { bubbleView?.removeCallbacks(it) }
+        val removal = Runnable {
+            if (closeTargetView === view) {
+                runCatching { windowManager.removeView(view) }
+                closeTargetView = null
+            }
+        }
+        closeTargetHideRunnable = removal
+        view.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setDuration(120).withEndAction(removal).start()
     }
 
     private fun isOverCloseTarget(rawX: Float, rawY: Float): Boolean {
@@ -266,23 +341,20 @@ class OverlayService : Service() {
         val screenWidth = resources.displayMetrics.widthPixels
         val screenHeight = resources.displayMetrics.heightPixels
         val centerX = screenWidth / 2f
-        val centerY = screenHeight - (80 * density)
+        val centerY = screenHeight - (76 * density)
         return hypot((rawX - centerX).toDouble(), (rawY - centerY).toDouble()) < 58 * density
     }
 
-    private fun showPage(view: View, page: Int) {
-        val pager = view.findViewById<ViewFlipper>(R.id.menu_pager)
-        pager.displayedChild = page
-        updatePageDots(view, page)
-    }
+    private fun bubbleWidth(): Int = bubbleView?.width?.takeIf { it > 0 } ?: dp(62)
 
-    private fun updatePageDots(view: View, page: Int) {
-        view.findViewById<View>(R.id.page_dot_one).setBackgroundResource(
-            if (page == 0) R.drawable.bg_page_dot_active else R.drawable.bg_page_dot
-        )
-        view.findViewById<View>(R.id.page_dot_two).setBackgroundResource(
-            if (page == 1) R.drawable.bg_page_dot_active else R.drawable.bg_page_dot
-        )
+    private fun bubbleHeight(): Int = bubbleView?.height?.takeIf { it > 0 } ?: dp(62)
+
+    private fun maxBubbleX(): Int = (resources.displayMetrics.widthPixels - bubbleWidth()).coerceAtLeast(0)
+
+    private fun maxBubbleY(): Int = (resources.displayMetrics.heightPixels - bubbleHeight()).coerceAtLeast(0)
+
+    private fun showPage(view: View, page: Int) {
+        view.findViewById<SwipePager>(R.id.menu_pager).setPage(page)
     }
 
     private fun applyControlOrder(view: View) {
@@ -296,8 +368,8 @@ class OverlayService : Service() {
             val tile = controls[controlId] ?: return@forEachIndexed
             val parent = if (index < 6) firstPage else secondPage
             tile.layoutParams = GridLayout.LayoutParams().apply {
-                width = dp(86)
-                height = dp(56)
+                width = dp(96)
+                height = dp(108)
                 setMargins(dp(2), dp(2), dp(2), dp(2))
             }
             parent.addView(tile)
@@ -305,7 +377,12 @@ class OverlayService : Service() {
     }
 
     private fun loadControlOrder(): MutableList<Int> {
-        val saved = getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE)
+        val preferences = getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE)
+        if (preferences.getInt(KEY_MENU_LAYOUT_VERSION, 0) < MENU_LAYOUT_VERSION) {
+            preferences.edit().putInt(KEY_MENU_LAYOUT_VERSION, MENU_LAYOUT_VERSION).apply()
+            return controlIds.toMutableList()
+        }
+        val saved = preferences
             .getString(KEY_MENU_ORDER, null)
             ?.split(',')
             ?.mapNotNull { it.toIntOrNull() }
@@ -358,7 +435,6 @@ class OverlayService : Service() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun wireMenuActions(view: View) {
-        updateSoundStatus(view)
         updateHotspotVisual(view)
 
         view.findViewById<View>(R.id.action_wifi).setOnClickListener {
@@ -372,19 +448,6 @@ class OverlayService : Service() {
         view.findViewById<View>(R.id.action_volume_down).setOnClickListener {
             SoundToggle.adjustMediaVolume(this, AudioManager.ADJUST_LOWER)
         }
-        view.findViewById<View>(R.id.action_volume_up).setOnClickListener {
-            SoundToggle.adjustMediaVolume(this, AudioManager.ADJUST_RAISE)
-        }
-        view.findViewById<View>(R.id.action_customize).setOnClickListener {
-            isEditingMenu = !isEditingMenu
-            if (isEditingMenu) {
-                Toast.makeText(this, "Hold and drag tiles to rearrange", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this, "Menu order saved", Toast.LENGTH_SHORT).show()
-            }
-        }
-        view.findViewById<View>(R.id.action_previous_page).setOnClickListener { showPage(view, 0) }
-        view.findViewById<View>(R.id.action_next_page).setOnClickListener { showPage(view, 1) }
         view.findViewById<View>(R.id.action_sound).setOnClickListener {
             val result = SoundToggle.cycleRingerMode(this)
             if (result == "no_access") {
@@ -392,7 +455,6 @@ class OverlayService : Service() {
                 launchFromOverlay(SoundToggle.requestDndAccessIntent())
             } else {
                 Toast.makeText(this, "Sound: $result", Toast.LENGTH_SHORT).show()
-                updateSoundStatus(view)
             }
         }
         view.findViewById<View>(R.id.action_hotspot).setOnClickListener {
@@ -429,10 +491,6 @@ class OverlayService : Service() {
                 .edit().putBoolean(BootReceiver.KEY_RUNNING, false).apply()
             stopSelf()
         }
-        view.findViewById<View>(R.id.action_close).setOnClickListener {
-            removeMenu()
-        }
-        view.findViewById<View>(R.id.action_hide_menu).setOnClickListener { removeMenu() }
         view.findViewById<View>(R.id.action_lock).setOnClickListener { lockScreen() }
         view.findViewById<View>(R.id.action_bluetooth).setOnClickListener {
             launchFromOverlay(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -454,25 +512,23 @@ class OverlayService : Service() {
     }
 
     private fun lockScreen() {
-        val admin = ComponentName(this, ScreenLockAdminReceiver::class.java)
-        val policyManager = getSystemService(DevicePolicyManager::class.java)
-        if (policyManager.isAdminActive(admin)) {
-            runCatching { policyManager.lockNow() }
-                .onFailure {
-                    Toast.makeText(this, "Screen lock was blocked by this device", Toast.LENGTH_LONG).show()
-                }
+        if (ScreenLockAccessibilityService.lockScreen()) {
+            removeMenu()
             return
         }
-        Toast.makeText(this, "Enable Screen Lock in the next Android screen, then tap Lock screen again", Toast.LENGTH_LONG).show()
-        launchFromOverlay(
-            Intent(this, ScreenLockSetupActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    }
-
-    private fun updateSoundStatus(view: View) {
-        view.findViewById<TextView>(R.id.status_sound).text =
-            "Sound: ${SoundToggle.currentModeLabel(this)}"
+        val admin = ComponentName(this, ScreenLockAdminReceiver::class.java)
+        val policyManager = getSystemService(DevicePolicyManager::class.java)
+        if (policyManager.isAdminActive(admin) && runCatching { policyManager.lockNow() }.isSuccess) {
+            removeMenu()
+            return
+        }
+        removeMenu()
+        Toast.makeText(
+            this,
+            "Turn on PixelTouch in Accessibility to use Lock screen",
+            Toast.LENGTH_LONG
+        ).show()
+        launchFromOverlay(ScreenLockAccessibilityService.settingsIntent())
     }
 
     private fun updateHotspotVisual(view: View) {
@@ -483,7 +539,7 @@ class OverlayService : Service() {
 
     private fun menuX(): Int {
         val screenWidth = resources.displayMetrics.widthPixels
-        val menuWidth = (198 * resources.displayMetrics.density).toInt()
+        val menuWidth = (320 * resources.displayMetrics.density).toInt()
         val proposed = bubbleParams.x - (menuWidth / 2) + ((bubbleView?.width ?: 62) / 2)
         return proposed.coerceIn(8, (screenWidth - menuWidth - 8).coerceAtLeast(8))
     }
@@ -491,7 +547,7 @@ class OverlayService : Service() {
     private fun menuY(): Int {
         val screenHeight = resources.displayMetrics.heightPixels
         val bubbleHeight = bubbleView?.height?.takeIf { it > 0 } ?: 150
-        val menuHeight = (260 * resources.displayMetrics.density).toInt()
+        val menuHeight = (242 * resources.displayMetrics.density).toInt()
         val below = bubbleParams.y + bubbleHeight + 14
         return if (below + menuHeight < screenHeight) {
             below
@@ -546,5 +602,7 @@ class OverlayService : Service() {
     companion object {
         const val ACTION_STOP = "com.shihan.pixeltouch.STOP"
         private const val KEY_MENU_ORDER = "menu_control_order"
+        private const val KEY_MENU_LAYOUT_VERSION = "menu_layout_version"
+        private const val MENU_LAYOUT_VERSION = 2
     }
 }
