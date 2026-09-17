@@ -22,6 +22,8 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshStatus() }
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshStatus() }
+    private val requestCamera =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { refreshStatus() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +31,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         binding.textVersion.text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
         AppUpdateManager.checkForUpdate(this)
+        if (intent.getBooleanExtra(EXTRA_REQUEST_CAMERA, false)) {
+            requestCameraPermission()
+        }
 
         binding.btnOverlay.setOnClickListener {
             openOverlayPermission()
@@ -98,6 +103,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestCamera.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
     private fun openOverlaySettings() {
         startActivity(
             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
@@ -146,5 +159,9 @@ class MainActivity : AppCompatActivity() {
             "Granted — Battery Saver now toggles instantly"
         else
             "Not granted — Battery Saver opens Settings instead (see README for the adb command)"
+    }
+
+    companion object {
+        const val EXTRA_REQUEST_CAMERA = "com.shihan.pixeltouch.REQUEST_CAMERA"
     }
 }

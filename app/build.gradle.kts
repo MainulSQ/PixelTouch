@@ -11,8 +11,8 @@ android {
         applicationId = "com.shihan.pixeltouch"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.3.0"
+        versionCode = 10
+        versionName = "1.3.2"
     }
 
     val ciDebugKeystore = providers.environmentVariable("PIXELTOUCH_DEBUG_KEYSTORE").orNull

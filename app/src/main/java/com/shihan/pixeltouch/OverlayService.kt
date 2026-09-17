@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.DragEvent
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -57,7 +58,6 @@ class OverlayService : Service() {
     private var isDragging = false
     private var isNearDismissTarget = false
     private var isPointerDown = false
-    private var isEditingMenu = false
     private var velocityTracker: VelocityTracker? = null
     private var closeTargetHideRunnable: Runnable? = null
     private var holdToDismissRunnable: Runnable? = null
@@ -70,6 +70,7 @@ class OverlayService : Service() {
         R.id.action_wifi,
         R.id.action_data,
         R.id.action_sound,
+        R.id.action_torch,
         R.id.action_hotspot,
         R.id.action_battery,
         R.id.action_lock,
@@ -77,8 +78,7 @@ class OverlayService : Service() {
         R.id.action_display,
         R.id.action_settings,
         R.id.action_app_info,
-        R.id.action_stop,
-        R.id.action_volume_down
+        R.id.action_stop
     )
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -280,6 +280,8 @@ class OverlayService : Service() {
             }
         }
         windowManager.addView(view, params)
+        // Reposition with the measured size, keeping the panel inside small screens too.
+        view.post { updateMenuPosition() }
     }
 
     private fun removeMenu() {
@@ -368,8 +370,8 @@ class OverlayService : Service() {
             val tile = controls[controlId] ?: return@forEachIndexed
             val parent = if (index < 6) firstPage else secondPage
             tile.layoutParams = GridLayout.LayoutParams().apply {
-                width = dp(96)
-                height = dp(108)
+                width = dp(84)
+                height = dp(100)
                 setMargins(dp(2), dp(2), dp(2), dp(2))
             }
             parent.addView(tile)
@@ -405,29 +407,58 @@ class OverlayService : Service() {
         controlIds.forEach { controlId ->
             val tile = view.findViewById<View>(controlId)
             tile.setOnLongClickListener {
-                if (!isEditingMenu) return@setOnLongClickListener false
                 val data = ClipData.newPlainText("control", controlId.toString())
-                it.startDragAndDrop(data, View.DragShadowBuilder(it), controlId, 0)
-                true
+                val started = it.startDragAndDrop(data, View.DragShadowBuilder(it), controlId, 0)
+                if (started) {
+                    it.alpha = 0.38f
+                    it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                }
+                started
             }
             tile.setOnDragListener { target, event ->
-                if (!isEditingMenu || event.action != DragEvent.ACTION_DROP) {
-                    return@setOnDragListener true
-                }
-                val sourceId = event.localState as? Int ?: return@setOnDragListener false
-                val targetId = target.id
-                if (sourceId != targetId) {
-                    val order = loadControlOrder()
-                    val sourceIndex = order.indexOf(sourceId)
-                    val targetIndex = order.indexOf(targetId)
-                    if (sourceIndex >= 0 && targetIndex >= 0) {
-                        order[sourceIndex] = targetId
-                        order[targetIndex] = sourceId
-                        saveControlOrder(order)
-                        applyControlOrder(view)
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> event.localState is Int
+                    DragEvent.ACTION_DRAG_ENTERED -> {
+                        if (target.id != (event.localState as? Int)) {
+                            target.animate().scaleX(1.06f).scaleY(1.06f).setDuration(90).start()
+                        }
+                        true
                     }
+                    DragEvent.ACTION_DRAG_EXITED -> {
+                        target.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+                        true
+                    }
+                    DragEvent.ACTION_DROP -> {
+                        target.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+                        val sourceId = event.localState as? Int ?: return@setOnDragListener false
+                        val targetId = target.id
+                        if (sourceId != targetId) {
+                            val order = loadControlOrder()
+                            val sourceIndex = order.indexOf(sourceId)
+                            val targetIndex = order.indexOf(targetId)
+                            if (sourceIndex >= 0 && targetIndex >= 0) {
+                                // Insert rather than swap: every following tile shifts one
+                                // place, so the sixth tile naturally flows onto page two.
+                                order.removeAt(sourceIndex)
+                                val insertAt = if (sourceIndex < targetIndex) {
+                                    targetIndex - 1
+                                } else {
+                                    targetIndex
+                                }
+                                order.add(insertAt, sourceId)
+                                saveControlOrder(order)
+                                applyControlOrder(view)
+                            }
+                        }
+                        true
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> {
+                        target.alpha = 1f
+                        target.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+                        true
+                    }
+                    else -> true
                 }
-                true
             }
         }
     }
@@ -445,8 +476,18 @@ class OverlayService : Service() {
         view.findViewById<View>(R.id.action_data).setOnClickListener {
             launchFromOverlay(MobileDataToggle.quickPanelIntent())
         }
-        view.findViewById<View>(R.id.action_volume_down).setOnClickListener {
-            SoundToggle.adjustMediaVolume(this, AudioManager.ADJUST_LOWER)
+        view.findViewById<View>(R.id.action_torch).setOnClickListener {
+            when (TorchToggle.toggle(this)) {
+                TorchToggle.Result.ON -> Toast.makeText(this, "Torch on", Toast.LENGTH_SHORT).show()
+                TorchToggle.Result.OFF -> Toast.makeText(this, "Torch off", Toast.LENGTH_SHORT).show()
+                TorchToggle.Result.PERMISSION_REQUIRED -> {
+                    Toast.makeText(this, "Grant Camera permission to use Torch", Toast.LENGTH_SHORT).show()
+                    launchFromOverlay(Intent(this, MainActivity::class.java)
+                        .putExtra(MainActivity.EXTRA_REQUEST_CAMERA, true)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                TorchToggle.Result.UNAVAILABLE -> Toast.makeText(this, "Torch is unavailable on this device", Toast.LENGTH_SHORT).show()
+            }
         }
         view.findViewById<View>(R.id.action_sound).setOnClickListener {
             val result = SoundToggle.cycleRingerMode(this)
@@ -539,7 +580,7 @@ class OverlayService : Service() {
 
     private fun menuX(): Int {
         val screenWidth = resources.displayMetrics.widthPixels
-        val menuWidth = (320 * resources.displayMetrics.density).toInt()
+        val menuWidth = menuView?.width?.takeIf { it > 0 } ?: dp(286)
         val proposed = bubbleParams.x - (menuWidth / 2) + ((bubbleView?.width ?: 62) / 2)
         return proposed.coerceIn(8, (screenWidth - menuWidth - 8).coerceAtLeast(8))
     }
@@ -547,7 +588,7 @@ class OverlayService : Service() {
     private fun menuY(): Int {
         val screenHeight = resources.displayMetrics.heightPixels
         val bubbleHeight = bubbleView?.height?.takeIf { it > 0 } ?: 150
-        val menuHeight = (242 * resources.displayMetrics.density).toInt()
+        val menuHeight = menuView?.height?.takeIf { it > 0 } ?: dp(228)
         val below = bubbleParams.y + bubbleHeight + 14
         return if (below + menuHeight < screenHeight) {
             below
@@ -603,6 +644,6 @@ class OverlayService : Service() {
         const val ACTION_STOP = "com.shihan.pixeltouch.STOP"
         private const val KEY_MENU_ORDER = "menu_control_order"
         private const val KEY_MENU_LAYOUT_VERSION = "menu_layout_version"
-        private const val MENU_LAYOUT_VERSION = 2
+        private const val MENU_LAYOUT_VERSION = 4
     }
 }
