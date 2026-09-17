@@ -20,9 +20,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: subosito/flutter-action@v2
         with:
-          gradle-version: "8.9"
+          channel: stable
+          flutter-version: "3.41.6"
 
       - name: Restore development signing key
         env:
@@ -32,22 +33,23 @@ jobs:
       - name: Build APK
         env:
           PIXELTOUCH_DEBUG_KEYSTORE: ${{ runner.temp }}/pixeltouch-debug.keystore
-        run: gradle :app:assembleDebug
+        run: flutter build apk --debug
 
       - name: Prepare release asset
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/PixelTouch.apk
+        run: cp build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/PixelTouch.apk
 
       - name: Read version
         id: version
         run: |
-          echo "code=$(jq -r '.elements[0].versionCode' app/build/outputs/apk/debug/output-metadata.json)" >> "$GITHUB_OUTPUT"
-          echo "name=$(jq -r '.elements[0].versionName' app/build/outputs/apk/debug/output-metadata.json)" >> "$GITHUB_OUTPUT"
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "name=${VERSION%%+*}" >> "$GITHUB_OUTPUT"
+          echo "code=${VERSION##*+}" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.code }}
           name: PixelTouch ${{ steps.version.outputs.name }}
-          files: app/build/outputs/apk/debug/PixelTouch.apk
+          files: build/app/outputs/flutter-apk/PixelTouch.apk
           generate_release_notes: true
           overwrite_files: true
