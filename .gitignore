@@ -1,0 +1,19 @@
+# Android / Gradle build output
+.gradle/
+build/
+*/build/
+
+# Local Android SDK and IDE settings
+local.properties
+.idea/
+*.iml
+
+# Signing credentials and local secrets
+*.jks
+*.keystore
+key.properties
+.env
+.env.*
+
+# System files
+.DS_Store

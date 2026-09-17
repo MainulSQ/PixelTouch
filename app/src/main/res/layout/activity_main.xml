@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="20dp"
+            android:text="A floating AssistiveTouch-style bubble for quick Wi-Fi, mobile data, sound, hotspot and battery saver toggles."
+            android:textColor="#AAAAAA"
+            android:textSize="14sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="1. Display over other apps"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/status_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textColor="#4DD0E1"
+            android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Grant overlay permission" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="2. Do Not Disturb access (for the sound toggle)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/status_dnd"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textColor="#4DD0E1"
+            android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_dnd"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Grant Do Not Disturb access" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="3. Location (for instant hotspot on/off)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/status_location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textColor="#4DD0E1"
+            android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Grant location permission" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="4. Notifications (keeps the bubble running)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/status_notifications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textColor="#4DD0E1"
+            android:textSize="13sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_notifications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Grant notification permission" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="5. Optional: full Battery Saver toggle (one-time adb command)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/status_adb"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:textColor="#4DD0E1"
+            android:textSize="13sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="20dp"
+            android:background="#333333" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_start"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/colorPrimary"
+            android:text="Start floating bubble"
+            android:textColor="#000000"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_stop"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:text="Stop bubble" />
+
+    </LinearLayout>
+</ScrollView>

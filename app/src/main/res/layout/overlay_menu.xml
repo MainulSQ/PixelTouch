@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="198dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_menu_panel"
+    android:padding="9dp"
+    android:elevation="18dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="1dp"
+        android:paddingBottom="5dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/menu_title"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/status_sound"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/bg_status_pill"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:textColor="#E6FFFFFF"
+                android:textSize="10sp"
+                tools:text="Sound: normal" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/action_close"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/bg_menu_tile"
+            android:contentDescription="@string/action_close"
+            android:padding="7dp"
+            android:src="@drawable/ic_close" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/action_volume_down"
+            style="@style/OverlayMiniButton"
+            android:contentDescription="@string/action_volume_down"
+            android:src="@drawable/ic_volume_down" />
+
+        <ImageButton
+            android:id="@+id/action_volume_up"
+            style="@style/OverlayMiniButton"
+            android:contentDescription="@string/action_volume_up"
+            android:src="@drawable/ic_volume_up" />
+    </LinearLayout>
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:alignmentMode="alignMargins"
+        android:columnCount="2"
+        android:rowCount="3"
+        android:useDefaultMargins="false">
+
+        <LinearLayout
+            android:id="@+id/action_wifi"
+            style="@style/OverlayMenuTile"
+            android:background="@drawable/bg_menu_tile_accent">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_wifi" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_wifi" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/action_data"
+            style="@style/OverlayMenuTile">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_data" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_data" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/action_sound"
+            style="@style/OverlayMenuTile">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_sound" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_sound" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/action_hotspot"
+            style="@style/OverlayMenuTile">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_hotspot" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_hotspot" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/action_battery"
+            style="@style/OverlayMenuTile">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_battery" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_battery" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/action_stop"
+            style="@style/OverlayMenuTile">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_power" />
+
+            <TextView
+                style="@style/OverlayMenuLabel"
+                android:text="@string/action_stop" />
+        </LinearLayout>
+    </GridLayout>
+</LinearLayout>
