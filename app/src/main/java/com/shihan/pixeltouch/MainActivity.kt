@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        AppUpdateManager.checkForUpdate(this)
 
         binding.btnOverlay.setOnClickListener {
             openOverlayPermission()
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        AppUpdateManager.resumePendingInstall(this)
     }
 
     private fun setBubbleRunningPref(running: Boolean) {

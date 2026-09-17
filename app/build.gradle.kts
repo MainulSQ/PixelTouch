@@ -11,8 +11,21 @@ android {
         applicationId = "com.shihan.pixeltouch"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+
+    val ciDebugKeystore = providers.environmentVariable("PIXELTOUCH_DEBUG_KEYSTORE").orNull
+
+    signingConfigs {
+        getByName("debug") {
+            if (ciDebugKeystore != null) {
+                storeFile = file(ciDebugKeystore)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
@@ -27,6 +40,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     compileOptions {

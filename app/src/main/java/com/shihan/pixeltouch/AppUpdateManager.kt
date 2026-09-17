@@ -1,0 +1,161 @@
+package com.shihan.pixeltouch
+
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import org.json.JSONObject
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.Executors
+
+/** Fetches signed development builds published by this project's GitHub Action. */
+object AppUpdateManager {
+
+    private const val RELEASE_API =
+        "https://api.github.com/repos/MainulSQ/PixelTouch/releases/latest"
+    private const val APK_NAME = "PixelTouch.apk"
+
+    private val executor = Executors.newSingleThreadExecutor()
+    private var pendingUpdate: Update? = null
+    private var shownVersionCode: Int? = null
+
+    private data class Update(
+        val versionCode: Int,
+        val versionName: String,
+        val downloadUrl: String
+    )
+
+    fun checkForUpdate(activity: AppCompatActivity) {
+        executor.execute {
+            val update = fetchLatestUpdate() ?: return@execute
+            if (update.versionCode <= BuildConfig.VERSION_CODE || shownVersionCode == update.versionCode) {
+                return@execute
+            }
+            activity.runOnUiThread {
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                shownVersionCode = update.versionCode
+                showUpdateDialog(activity, update)
+            }
+        }
+    }
+
+    fun resumePendingInstall(activity: AppCompatActivity) {
+        val update = pendingUpdate ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || activity.packageManager.canRequestPackageInstalls()) {
+            pendingUpdate = null
+            downloadAndInstall(activity, update)
+        }
+    }
+
+    private fun showUpdateDialog(activity: AppCompatActivity, update: Update) {
+        AlertDialog.Builder(activity)
+            .setTitle("Update available")
+            .setMessage("PixelTouch ${update.versionName} is ready to install.")
+            .setNegativeButton("Later", null)
+            .setPositiveButton("Update") { _, _ -> requestInstallAndDownload(activity, update) }
+            .show()
+    }
+
+    private fun requestInstallAndDownload(activity: AppCompatActivity, update: Update) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !activity.packageManager.canRequestPackageInstalls()
+        ) {
+            pendingUpdate = update
+            Toast.makeText(
+                activity,
+                "Allow PixelTouch to install updates, then return here",
+                Toast.LENGTH_LONG
+            ).show()
+            activity.startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${activity.packageName}")
+                )
+            )
+            return
+        }
+        downloadAndInstall(activity, update)
+    }
+
+    private fun downloadAndInstall(activity: AppCompatActivity, update: Update) {
+        Toast.makeText(activity, "Downloading PixelTouch ${update.versionName}", Toast.LENGTH_SHORT).show()
+        executor.execute {
+            val apk = downloadApk(activity, update) ?: run {
+                activity.runOnUiThread {
+                    Toast.makeText(activity, "Update download failed", Toast.LENGTH_LONG).show()
+                }
+                return@execute
+            }
+            activity.runOnUiThread { launchPackageInstaller(activity, apk) }
+        }
+    }
+
+    private fun fetchLatestUpdate(): Update? = runCatching {
+        val connection = (URL(RELEASE_API).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 15_000
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "PixelTouch")
+        }
+        try {
+            if (connection.responseCode !in 200..299) return null
+            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val versionCode = json.getString("tag_name").removePrefix("v").toIntOrNull() ?: return null
+            val assets = json.getJSONArray("assets")
+            for (index in 0 until assets.length()) {
+                val asset = assets.getJSONObject(index)
+                if (asset.getString("name") == APK_NAME) {
+                    return Update(
+                        versionCode = versionCode,
+                        versionName = json.optString("name", "v$versionCode"),
+                        downloadUrl = asset.getString("browser_download_url")
+                    )
+                }
+            }
+            null
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+
+    private fun downloadApk(activity: AppCompatActivity, update: Update): File? = runCatching {
+        val directory = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: activity.cacheDir
+        directory.mkdirs()
+        val apk = File(directory, "PixelTouch-${update.versionCode}.apk")
+        val connection = (URL(update.downloadUrl).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 30_000
+            setRequestProperty("User-Agent", "PixelTouch")
+        }
+        try {
+            if (connection.responseCode !in 200..299) error("Download failed")
+            connection.inputStream.use { input ->
+                apk.outputStream().use { output -> input.copyTo(output) }
+            }
+        } finally {
+            connection.disconnect()
+        }
+        apk
+    }.getOrNull()
+
+    private fun launchPackageInstaller(activity: AppCompatActivity, apk: File) {
+        val uri = FileProvider.getUriForFile(
+            activity,
+            "${activity.packageName}.fileprovider",
+            apk
+        )
+        activity.startActivity(
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        )
+    }
+}
