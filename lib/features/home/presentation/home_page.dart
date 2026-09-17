@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../application/home_cubit.dart';
+import '../application/menu_cubit.dart';
+import '../data/android_device_gateway.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -36,6 +38,12 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 _BubbleCard(running: s?.running == true),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => _showMenuEditor(context),
+                  icon: const Icon(Icons.tune_rounded),
+                  label: const Text('Customize quick menu'),
+                ),
                 const SizedBox(height: 24),
                 const Text(
                   'Permissions',
@@ -83,6 +91,71 @@ class HomePage extends StatelessWidget {
             ),
           );
         },
+      ),
+    ),
+  );
+
+  void _showMenuEditor(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider(
+        create: (_) => MenuCubit(AndroidDeviceGateway())..load(),
+        child: const _MenuEditor(),
+      ),
+    );
+  }
+}
+
+class _MenuEditor extends StatelessWidget {
+  const _MenuEditor();
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      child: BlocBuilder<MenuCubit, MenuState>(
+        builder: (context, state) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Customize quick menu',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Turn off a control to remove it. You can restore it here anytime.',
+            ),
+            const SizedBox(height: 12),
+            if (state.loading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: state.controls.length,
+                  itemBuilder: (_, index) {
+                    final control = state.controls[index];
+                    return SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(control.label),
+                      value: control.visible,
+                      onChanged: (visible) => context
+                          .read<MenuCubit>()
+                          .setVisible(control, visible),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     ),
   );

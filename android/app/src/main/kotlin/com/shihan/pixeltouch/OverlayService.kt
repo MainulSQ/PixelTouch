@@ -78,9 +78,7 @@ class OverlayService : Service() {
         R.id.action_lock,
         R.id.action_bluetooth,
         R.id.action_display,
-        R.id.action_settings,
-        R.id.action_app_info,
-        R.id.action_stop
+        R.id.action_settings
     )
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -369,12 +367,12 @@ class OverlayService : Service() {
         firstPage.removeAllViews()
         secondPage.removeAllViews()
 
-        loadControlOrder().forEachIndexed { index, controlId ->
+        loadControlOrder().filter { it in visibleControlIds() }.forEachIndexed { index, controlId ->
             val tile = controls[controlId] ?: return@forEachIndexed
             val parent = if (index < 6) firstPage else secondPage
             tile.layoutParams = GridLayout.LayoutParams().apply {
-                width = dp(84)
-                height = dp(100)
+                width = dp(80)
+                height = dp(74)
                 setMargins(dp(2), dp(2), dp(2), dp(2))
             }
             parent.addView(tile)
@@ -405,6 +403,49 @@ class OverlayService : Service() {
             .putString(KEY_MENU_ORDER, order.joinToString(","))
             .apply()
     }
+
+    private fun visibleControlIds(): Set<Int> {
+        val saved = getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE)
+            .getString(KEY_VISIBLE_CONTROLS, null)
+            ?.split(',')
+            ?.mapNotNull { it.toIntOrNull() }
+            ?.toSet()
+        return saved ?: controlIds.toSet()
+    }
+
+    fun menuControls(): List<Map<String, Any>> {
+        val visible = visibleControlIds()
+        return controlIds.map { id ->
+            mapOf("id" to id, "label" to controlLabel(id), "visible" to (id in visible))
+        }
+    }
+
+    fun setMenuControlVisible(id: Int, visible: Boolean) {
+        if (id !in controlIds) return
+        val controls = visibleControlIds().toMutableSet()
+        if (visible) controls.add(id) else controls.remove(id)
+        // Keep at least one control visible so an empty overlay cannot trap the user.
+        if (controls.isEmpty()) return
+        getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE).edit()
+            .putString(KEY_VISIBLE_CONTROLS, controlIds.filter { it in controls }.joinToString(","))
+            .apply()
+        menuView?.let { applyControlOrder(it); updateMenuPosition() }
+    }
+
+    private fun controlLabel(id: Int): String = getString(when (id) {
+        R.id.action_wifi -> R.string.action_wifi
+        R.id.action_data -> R.string.action_data
+        R.id.action_sound -> R.string.action_sound
+        R.id.action_torch -> R.string.action_torch
+        R.id.action_hotspot -> R.string.action_hotspot
+        R.id.action_battery -> R.string.action_battery
+        R.id.action_lock -> R.string.action_lock
+        R.id.action_bluetooth -> R.string.action_bluetooth
+        R.id.action_display -> R.string.action_display
+        R.id.action_settings -> R.string.action_settings
+        R.id.action_screenshot -> R.string.action_screenshot
+        else -> R.string.app_name
+    })
 
     private fun setupReorderHandlers(view: View) {
         controlIds.forEach { controlId ->
@@ -506,11 +547,6 @@ class OverlayService : Service() {
         view.findViewById<View>(R.id.action_battery).setOnClickListener {
             launchFromOverlay(BatterySaverToggle.settingsIntent())
         }
-        view.findViewById<View>(R.id.action_stop).setOnClickListener {
-            getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE)
-                .edit().putBoolean(BootReceiver.KEY_RUNNING, false).apply()
-            stopSelf()
-        }
         view.findViewById<View>(R.id.action_lock).setOnClickListener { lockScreen() }
         view.findViewById<View>(R.id.action_screenshot).setOnClickListener {
             val started = ScreenLockAccessibilityService.takeScreenshot(this) { saved ->
@@ -533,13 +569,6 @@ class OverlayService : Service() {
         }
         view.findViewById<View>(R.id.action_settings).setOnClickListener {
             launchFromOverlay(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-        view.findViewById<View>(R.id.action_app_info).setOnClickListener {
-            launchFromOverlay(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    .setData(android.net.Uri.parse("package:$packageName"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
         }
         setupReorderHandlers(view)
     }
@@ -584,7 +613,7 @@ class OverlayService : Service() {
 
     private fun menuX(): Int {
         val screenWidth = resources.displayMetrics.widthPixels
-        val menuWidth = menuView?.width?.takeIf { it > 0 } ?: dp(286)
+        val menuWidth = menuView?.width?.takeIf { it > 0 } ?: dp(266)
         val proposed = bubbleParams.x - (menuWidth / 2) + ((bubbleView?.width ?: 62) / 2)
         return proposed.coerceIn(8, (screenWidth - menuWidth - 8).coerceAtLeast(8))
     }
@@ -592,7 +621,7 @@ class OverlayService : Service() {
     private fun menuY(): Int {
         val screenHeight = resources.displayMetrics.heightPixels
         val bubbleHeight = bubbleView?.height?.takeIf { it > 0 } ?: 150
-        val menuHeight = menuView?.height?.takeIf { it > 0 } ?: dp(228)
+        val menuHeight = menuView?.height?.takeIf { it > 0 } ?: dp(172)
         val below = bubbleParams.y + bubbleHeight + 14
         return if (below + menuHeight < screenHeight) {
             below
@@ -647,6 +676,7 @@ class OverlayService : Service() {
     companion object {
         const val ACTION_STOP = "com.shihan.pixeltouch.STOP"
         private const val KEY_MENU_ORDER = "menu_control_order"
+        private const val KEY_VISIBLE_CONTROLS = "visible_menu_controls"
         private const val KEY_MENU_LAYOUT_VERSION = "menu_layout_version"
         private const val MENU_LAYOUT_VERSION = 4
     }
