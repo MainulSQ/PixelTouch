@@ -28,6 +28,7 @@ import android.view.VelocityTracker
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.GridLayout
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.shihan.pixeltouch.toggles.BatterySaverToggle
@@ -70,6 +71,7 @@ class OverlayService : Service() {
         R.id.action_wifi,
         R.id.action_data,
         R.id.action_sound,
+        R.id.action_screenshot,
         R.id.action_torch,
         R.id.action_hotspot,
         R.id.action_battery,
@@ -268,6 +270,7 @@ class OverlayService : Service() {
 
         menuParams = params
         wireMenuActions(view)
+        updateSoundVisual(view)
         applyControlOrder(view)
         view.findViewById<SwipePager>(R.id.menu_pager).onPageChanged = { _ -> }
         view.findViewById<SwipePager>(R.id.menu_pager).setPage(0, animate = false)
@@ -469,12 +472,10 @@ class OverlayService : Service() {
         updateHotspotVisual(view)
 
         view.findViewById<View>(R.id.action_wifi).setOnClickListener {
-            if (!WifiToggle.tryDirectToggle(this)) {
-                launchFromOverlay(WifiToggle.quickPanelIntent())
-            }
+            launchFromOverlay(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
         view.findViewById<View>(R.id.action_data).setOnClickListener {
-            launchFromOverlay(MobileDataToggle.quickPanelIntent())
+            launchFromOverlay(Intent(Settings.ACTION_DATA_USAGE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
         view.findViewById<View>(R.id.action_torch).setOnClickListener {
             when (TorchToggle.toggle(this)) {
@@ -496,36 +497,14 @@ class OverlayService : Service() {
                 launchFromOverlay(SoundToggle.requestDndAccessIntent())
             } else {
                 Toast.makeText(this, "Sound: $result", Toast.LENGTH_SHORT).show()
+                updateSoundVisual(view)
             }
         }
         view.findViewById<View>(R.id.action_hotspot).setOnClickListener {
-            if (HotspotToggle.isActive) {
-                HotspotToggle.stop()
-                updateHotspotVisual(view)
-                Toast.makeText(this, "Hotspot stopped", Toast.LENGTH_SHORT).show()
-            } else {
-                HotspotToggle.start(
-                    this, "PixelTouch-Hotspot", "touch1234",
-                    onStarted = { ssid, _ ->
-                        updateHotspotVisual(view)
-                        Toast.makeText(this, "Hotspot on: $ssid", Toast.LENGTH_LONG).show()
-                    },
-                    onFailed = { reason ->
-                        updateHotspotVisual(view)
-                        if (reason == "permission") {
-                            Toast.makeText(this, "Location permission needed for hotspot", Toast.LENGTH_LONG).show()
-                        }
-                        launchHotspotSettings()
-                    }
-                )
-            }
+            launchHotspotSettings()
         }
         view.findViewById<View>(R.id.action_battery).setOnClickListener {
-            if (BatterySaverToggle.tryDirectToggle(this)) {
-                Toast.makeText(this, "Battery saver toggled", Toast.LENGTH_SHORT).show()
-            } else {
-                launchFromOverlay(BatterySaverToggle.settingsIntent())
-            }
+            launchFromOverlay(BatterySaverToggle.settingsIntent())
         }
         view.findViewById<View>(R.id.action_stop).setOnClickListener {
             getSharedPreferences(BootReceiver.PREFS, MODE_PRIVATE)
@@ -533,6 +512,19 @@ class OverlayService : Service() {
             stopSelf()
         }
         view.findViewById<View>(R.id.action_lock).setOnClickListener { lockScreen() }
+        view.findViewById<View>(R.id.action_screenshot).setOnClickListener {
+            val started = ScreenLockAccessibilityService.takeScreenshot(this) { saved ->
+                Toast.makeText(
+                    this,
+                    if (saved) "Screenshot saved" else "Couldn't save screenshot",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            if (!started) {
+                Toast.makeText(this, "Turn on PixelTouch in Accessibility to take screenshots", Toast.LENGTH_LONG).show()
+                launchFromOverlay(ScreenLockAccessibilityService.settingsIntent())
+            }
+        }
         view.findViewById<View>(R.id.action_bluetooth).setOnClickListener {
             launchFromOverlay(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
@@ -575,6 +567,18 @@ class OverlayService : Service() {
     private fun updateHotspotVisual(view: View) {
         view.findViewById<View>(R.id.action_hotspot).setBackgroundResource(
             if (HotspotToggle.isActive) R.drawable.bg_menu_tile_accent else R.drawable.bg_menu_tile
+        )
+    }
+
+    private fun updateSoundVisual(view: View) {
+        val icon = view.findViewById<ImageView>(R.id.icon_sound)
+        val ringerMode = getSystemService(AudioManager::class.java).ringerMode
+        icon.setImageResource(
+            when (ringerMode) {
+                AudioManager.RINGER_MODE_VIBRATE -> R.drawable.ic_sound_vibrate
+                AudioManager.RINGER_MODE_SILENT -> R.drawable.ic_sound_silent
+                else -> R.drawable.ic_sound_normal
+            }
         )
     }
 

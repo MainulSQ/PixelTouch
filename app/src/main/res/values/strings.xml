@@ -5,6 +5,7 @@
     <string name="action_wifi">Wi‑Fi</string>
     <string name="action_data">Mobile data</string>
     <string name="action_sound">Sound</string>
+    <string name="action_screenshot">Screenshot</string>
     <string name="action_torch">Torch</string>
     <string name="action_volume_down">Volume down</string>
     <string name="action_volume_up">Volume up</string>
