@@ -1,12 +1,12 @@
 package com.shihan.pixeltouch
 
 import android.content.Intent
+import android.app.AlertDialog
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import android.app.Activity
 import androidx.core.content.FileProvider
 import java.io.File
