@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PixelTouch</string>
-    <string name="menu_title">Assistive Touch</string>
     <string name="action_wifi">Wi‑Fi</string>
     <string name="action_data">Mobile data</string>
     <string name="action_sound">Sound</string>
@@ -11,4 +10,13 @@
     <string name="action_battery">Battery saver</string>
     <string name="action_stop">Stop bubble</string>
     <string name="action_close">Close</string>
+    <string name="action_customize">Customize menu</string>
+    <string name="action_previous_page">Previous controls</string>
+    <string name="action_next_page">More controls</string>
+    <string name="action_lock">Lock screen</string>
+    <string name="action_bluetooth">Bluetooth</string>
+    <string name="action_display">Display</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_app_info">App info</string>
+    <string name="action_hide_menu">Hide menu</string>
 </resources>
